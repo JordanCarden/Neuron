@@ -2,11 +2,12 @@ import argparse
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Simulate LIF neuron model and alpha synapse model.")
     parser.add_argument("mode", choices=["spike", "current"], help="Simulation mode: 'spike' or 'current'")
-    parser.add_argument("sim_time", type=float, help="Simulation time in milliseconds")
+    parser.add_argument("simTime", type=float, help="Simulation time in milliseconds")
     parser.add_argument("--spike_rate", type=int, help="Input spike rate in Hz (only for 'spike' mode)")
     parser.add_argument("--current", type=float, help="Input current in nanoamps (only for 'current' mode)")
     return parser.parse_args()
@@ -25,13 +26,13 @@ def lifFunction(previousVoltage, inputCurrent):
 
     return previousVoltage + delta_t * (((-previousVoltage + rest_potential) / decay_time) + (inputCurrent/(membrane_capacity*1000000000)))
 
-def lif_neuron_sim(config, sim_time, input_current):
+def lif_neuron_sim(config, simTime, input_current):
     """
     Simulate a Leaky Integrate-and-Fire (LIF) neuron.
 
     Args:
         config (dict): Configuration parameters.
-        sim_time (float): Simulation time in milliseconds.
+        simTime (float): Simulation time in milliseconds.
         input_current (float): Input current in nanoamps.
 
     Returns:
@@ -51,13 +52,13 @@ def lif_neuron_sim(config, sim_time, input_current):
     membrane_voltage = [spike]
 
     # Perform simulation using Euler's method
-    for time in np.arange(0, sim_time/1000, delta_t):
+    for time in np.arange(0, simTime/1000, delta_t):
         # Check if the neuron is in the refractory period
         if time - last_spike_time <= refractory_period:
             voltage = rest_potential
         else:
             voltage = lifFunction(membrane_voltage[-1], input_current)
-            print(voltage)
+
             if voltage >= spike_threshold:
                 last_spike_time = time
                 voltage = spike
@@ -67,13 +68,13 @@ def lif_neuron_sim(config, sim_time, input_current):
     return membrane_voltage
 
 
-def alpha_synapse_sim(config, sim_time, spike_times):
+def alpha_synapse_sim(config, simTime, spikeRate):
     """
     Simulate an alpha synapse.
 
     Args:
         config (dict): Configuration parameters.
-        sim_time (float): Simulation time in milliseconds.
+        simTime (float): Simulation time in milliseconds.
         spike_times (list): List of spike times.
 
     Returns:
@@ -81,24 +82,42 @@ def alpha_synapse_sim(config, sim_time, spike_times):
     """
     # Extract configuration parameters
     reversal_potential = config["v_rev"]
-    alpha_synapse_weight = config["w"]
-    alpha_synapse_max_conductance = config["alpha_synapse_max_conductance"]
-    alpha_synapse_decay_time_constant = config["tao_syn"]
+    rest_potential = config["v_r"]
+    spike_threshold = config["v_thr"]
+    weight = config["w"]
+    spike = config["v_spike"]
+    decay_time = config["tao_syn"]
     delta_t = config["dt"]
+    gBar = config["g_bar"]
+    refractory_period = config["t_r"]
 
     # Initialize synaptic current array
     membrane_voltage = [0]
+    last_input_spike_time = 0
+    last_spike_time = -10000000
 
-    for time in np.arange(0, sim_time/1000, delta_t):
-        # Check if the neuron is in the refractory period
+    for time in np.arange(0, simTime/1000, delta_t):
+
+        timeFunc = (time - last_input_spike_time) / decay_time
+        Isyn = weight * gBar * (reversal_potential - membrane_voltage[-1]) * timeFunc * math.exp(-timeFunc)
+
         if time - last_spike_time <= refractory_period:
             voltage = rest_potential
+
         else:
-            voltage = lifFunction(membrane_voltage[-1], input_current)
-            print(voltage)
+            if time % (spikeRate * simTime / 1000000) != 0:
+                voltage = lifFunction(membrane_voltage[-1], Isyn)
+            else:
+                print("received input spike")
+                last_input_spike_time = time
+                voltage = lifFunction(membrane_voltage[-1], Isyn)
+                print(voltage)
+                print(spike_threshold)
+
             if voltage >= spike_threshold:
                 last_spike_time = time
                 voltage = spike
+
 
         membrane_voltage.append(voltage)
 
@@ -111,27 +130,26 @@ def main():
     if args.mode == 'spike':
         if args.spike_rate is None:
             parser.error('--spike_rate is required for "spike" mode')
-        spike_rate = args.spike_rate
-        spike_times = np.arange(0, args.sim_time / 1000, 1 / spike_rate)
-        synaptic_current = alpha_synapse_sim(config, args.sim_time, spike_times)
+        spikeRate = args.spike_rate
+        synaptic_current = alpha_synapse_sim(config, args.simTime, spikeRate)
     else:  # args.mode == 'current'
         if args.current is None:
             parser.error('--current is required for "current" mode')
         input_current = args.current
-        membrane_voltage = lif_neuron_sim(config, args.sim_time, input_current)
+        membrane_voltage = lif_neuron_sim(config, args.simTime, input_current)
 
     if args.mode == 'spike':
-        plt.plot(spike_times, synaptic_current)
-        plt.xlabel('Time (s)')
-        plt.ylabel('Synaptic Current (A)')
-        plt.title('Synaptic Current Over Time')
+        plt.plot(synaptic_current)
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.title('Title')
         plt.grid(True)
         plt.show()
     else:  # args.mode == 'current'
         plt.plot(membrane_voltage)
         plt.xlabel('X')
         plt.ylabel('Y')
-        plt.title('Membrane Voltage Over Time')
+        plt.title('Title')
         plt.grid(True)
         plt.show()
 

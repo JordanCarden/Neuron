@@ -16,6 +16,15 @@ def load_config():
         config = json.load(config_file)
     return config
 
+def lifFunction(previousVoltage, inputCurrent):
+    config = load_config()
+    rest_potential = config["v_r"]
+    delta_t = config["dt"]
+    decay_time = config["tao_m"]
+    membrane_capacity = config["c_m"]
+
+    return previousVoltage + delta_t * (((-previousVoltage + rest_potential) / decay_time) + (inputCurrent/(membrane_capacity*1000000000)))
+
 def lif_neuron_sim(config, sim_time, input_current):
     """
     Simulate a Leaky Integrate-and-Fire (LIF) neuron.
@@ -34,6 +43,8 @@ def lif_neuron_sim(config, sim_time, input_current):
     spike = config["v_spike"]
     refractory_period = config["t_r"]
     delta_t = config["dt"]
+    decay_time = config["tao_m"]
+    membrane_capacity = config["c_m"]
 
     # Initialize variables
     last_spike_time = 0
@@ -45,13 +56,13 @@ def lif_neuron_sim(config, sim_time, input_current):
         if time - last_spike_time <= refractory_period:
             voltage = rest_potential
         else:
-            voltage = spike
+            voltage = lifFunction(membrane_voltage[-1], input_current)
+            print(voltage)
+            if voltage >= spike_threshold:
+                last_spike_time = time
+                voltage = spike
 
         membrane_voltage.append(voltage)
-
-        if voltage >= spike_threshold:
-            last_spike_time = time
-            voltage = rest_potential
 
     return membrane_voltage
 
@@ -69,27 +80,29 @@ def alpha_synapse_sim(config, sim_time, spike_times):
         ndarray: Array of synaptic currents over time.
     """
     # Extract configuration parameters
-    reversal_potential = config["reversal_potential"]
-    alpha_synapse_weight = config["alpha_synapse_weight"]
+    reversal_potential = config["v_rev"]
+    alpha_synapse_weight = config["w"]
     alpha_synapse_max_conductance = config["alpha_synapse_max_conductance"]
-    alpha_synapse_decay_time_constant = config["alpha_synapse_decay_time_constant"]
-    delta_t = config["delta_t"]
+    alpha_synapse_decay_time_constant = config["tao_syn"]
+    delta_t = config["dt"]
 
     # Initialize synaptic current array
-    synaptic_current = np.zeros(int(sim_time / delta_t))
+    membrane_voltage = [0]
 
-    # Perform simulation
-    for spike_time in spike_times:
-        for i, time in enumerate(np.arange(0, sim_time, delta_t)):
-            if time >= spike_time:
-                # Calculate synaptic current using alpha synapse model
-                synaptic_current[i] += alpha_synapse_weight * \
-                                       alpha_synapse_max_conductance * \
-                                       (reversal_potential - synaptic_current[i]) * \
-                                       (time - spike_time) * \
-                                       np.exp(- (time - spike_time) / alpha_synapse_decay_time_constant)
+    for time in np.arange(0, sim_time/1000, delta_t):
+        # Check if the neuron is in the refractory period
+        if time - last_spike_time <= refractory_period:
+            voltage = rest_potential
+        else:
+            voltage = lifFunction(membrane_voltage[-1], input_current)
+            print(voltage)
+            if voltage >= spike_threshold:
+                last_spike_time = time
+                voltage = spike
 
-    return synaptic_current
+        membrane_voltage.append(voltage)
+
+    return membrane_voltage
 
 def main():
     args = parse_arguments()
@@ -116,8 +129,8 @@ def main():
         plt.show()
     else:  # args.mode == 'current'
         plt.plot(membrane_voltage)
-        plt.xlabel('Time (ms)')
-        plt.ylabel('Membrane Voltage (mV)')
+        plt.xlabel('X')
+        plt.ylabel('Y')
         plt.title('Membrane Voltage Over Time')
         plt.grid(True)
         plt.show()

@@ -108,7 +108,7 @@ def alpha_synapse_sim(config, simTime, spikeRate):
             if time % (spikeRate * simTime / 1000000) != 0:
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
             else:
-                print("received input spike")
+                print("spiked")
                 last_input_spike_time = time
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
                 print(voltage)

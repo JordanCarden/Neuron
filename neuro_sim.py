@@ -108,7 +108,6 @@ def alpha_synapse_sim(config, simTime, spikeRate):
 
     spike_times = generate_spikes(spikeRate, simTime)
     i = 0
-    print(spike_times)
 
     for time in np.arange(0, simTime/1000, delta_t):
 
@@ -121,11 +120,8 @@ def alpha_synapse_sim(config, simTime, spikeRate):
         else:
             if np.round(time, 4) != spike_times[i]:
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
-                print(time)
             else:
                 i = i + 1
-                print("received input spike")
-                print(time)
                 last_input_spike_time = time
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
 

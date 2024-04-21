@@ -24,7 +24,7 @@ def lifFunction(previousVoltage, inputCurrent):
     decay_time = config["tao_m"]
     membrane_capacity = config["c_m"]
 
-    return previousVoltage + delta_t * (((-previousVoltage + rest_potential) / decay_time) + (inputCurrent/(membrane_capacity*1000000000)))
+    return previousVoltage + delta_t * (((-previousVoltage + rest_potential) / decay_time) + (inputCurrent/(membrane_capacity)))
 
 def lif_neuron_sim(config, simTime, input_current):
     """
@@ -68,6 +68,16 @@ def lif_neuron_sim(config, simTime, input_current):
     return membrane_voltage
 
 
+def generate_spikes(spike_rate, run_time):
+    # Calculate the expected number of spikes
+    expected_spikes = spike_rate * run_time/1000
+
+
+    # Discard spikes beyond the run time
+    spike_times = np.arange(0, run_time/1000 + .01, expected_spikes/1000)
+
+    return spike_times
+
 def alpha_synapse_sim(config, simTime, spikeRate):
     """
     Simulate an alpha synapse.
@@ -92,9 +102,13 @@ def alpha_synapse_sim(config, simTime, spikeRate):
     refractory_period = config["t_r"]
 
     # Initialize synaptic current array
-    membrane_voltage = [0]
+    membrane_voltage = [rest_potential]
     last_input_spike_time = 0
     last_spike_time = -10000000
+
+    spike_times = generate_spikes(spikeRate, simTime)
+    i = 0
+    print(spike_times)
 
     for time in np.arange(0, simTime/1000, delta_t):
 
@@ -105,19 +119,19 @@ def alpha_synapse_sim(config, simTime, spikeRate):
             voltage = rest_potential
 
         else:
-            if time % (spikeRate * simTime / 1000000) != 0:
+            if np.round(time, 4) != spike_times[i]:
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
+                print(time)
             else:
+                i = i + 1
                 print("received input spike")
+                print(time)
                 last_input_spike_time = time
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
-                print(voltage)
-                print(spike_threshold)
 
             if voltage >= spike_threshold:
                 last_spike_time = time
                 voltage = spike
-
 
         membrane_voltage.append(voltage)
 

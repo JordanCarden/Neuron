@@ -155,14 +155,14 @@ def main():
         membrane_voltage = lif_neuron_sim(config, args.simTime, input_current)
 
     if args.mode == 'spike':
-        plt.plot(synaptic_current)
+        plt.plot(np.linspace(0, args.simTime, len(synaptic_current)), synaptic_current)
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.title('Title')
         plt.grid(True)
         plt.show()
     else:  # args.mode == 'current'
-        plt.plot(membrane_voltage)
+        plt.plot(np.linspace(0, args.simTime, len(membrane_voltage)), membrane_voltage)
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.title('Title')

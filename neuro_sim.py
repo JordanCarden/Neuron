@@ -48,10 +48,10 @@ def lif_neuron_sim(config, simTime, input_current):
     membrane_capacity = config["c_m"]
 
     # Initialize variables
-    input_current = input_current
+    input_current = input_current/1000000000
     simTime = simTime / 1000
-    last_spike_time = 0
-    membrane_voltage = [spike]
+    last_spike_time = -100
+    membrane_voltage = [rest_potential]
     i = 1
 
     # Perform simulation using Euler's method

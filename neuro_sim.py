@@ -48,11 +48,14 @@ def lif_neuron_sim(config, simTime, input_current):
     membrane_capacity = config["c_m"]
 
     # Initialize variables
+    input_current = input_current
+    simTime = simTime / 1000
     last_spike_time = 0
     membrane_voltage = [spike]
+    i = 1
 
     # Perform simulation using Euler's method
-    for time in np.arange(0, simTime/1000, delta_t):
+    for time in np.linspace(0, simTime, int(simTime / delta_t)):
         # Check if the neuron is in the refractory period
         if time - last_spike_time <= refractory_period:
             voltage = rest_potential
@@ -61,9 +64,12 @@ def lif_neuron_sim(config, simTime, input_current):
 
             if voltage >= spike_threshold:
                 last_spike_time = time
+                print(i)
+                i = i + 1
                 voltage = spike
 
         membrane_voltage.append(voltage)
+
 
     return membrane_voltage
 

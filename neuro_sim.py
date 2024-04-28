@@ -71,15 +71,27 @@ def lif_neuron_sim(config, simTime, input_current):
 
     return membrane_voltage
 
+coefficients = [1] + [1 / math.factorial(i) for i in range(1, 20)]
+
+def p_nested(x, n, coeffs):
+    # Initialize the polynomial with the coefficient at index n
+    poly = coeffs[n]
+    # Iterate over the coefficients in reverse order to calculate the nested polynomial
+    for k in reversed(range(n)):
+        poly = coeffs[k] + x * poly
+    return poly
 
 def generate_spikes(spike_rate, run_time):
     # Calculate the expected number of spikes
     expected_spikes = spike_rate * run_time/1000
 
     # Discard spikes beyond the run time
-    spike_times = np.linspace(0, run_time, int(expected_spikes+1)) / 1000
+    spike_times = np.linspace(0, run_time, int(expected_spikes+1))
 
+    print(spike_times)
     return spike_times
+
+
 
 def alpha_synapse_sim(config, simTime, spikeRate):
     """
@@ -108,19 +120,27 @@ def alpha_synapse_sim(config, simTime, spikeRate):
     membrane_voltage = [rest_potential]
     last_input_spike_time = 0
     last_spike_time = -10000000
+    delta_t = delta_t * 1000
+    refractory_period = refractory_period * 1000
+    decay_time = decay_time * 1000
 
     spike_times = generate_spikes(spikeRate, simTime)
     i = 0
 
-    for time in np.arange(0, simTime/1000, delta_t):
+    for time in np.arange(0, simTime, delta_t):
+
+        np.round(time, 3)
         timeFunc = (time - last_input_spike_time) / decay_time
-        Isyn = weight * gBar * (reversal_potential - membrane_voltage[-1]) * timeFunc * math.exp(-timeFunc)
+        #exp_approximation = p_nested(-timeFunc, 10, coefficients)
+        exp_approximation = math.exp(-timeFunc)
+        print(exp_approximation)
+        Isyn = weight * gBar * (reversal_potential - membrane_voltage[-1]) * timeFunc * exp_approximation
 
         if time - last_spike_time <= refractory_period:
             voltage = rest_potential
 
         else:
-            if np.round(time, 6) != spike_times[i]:
+            if time != spike_times[i]:
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
             else:
                 i = i + 1

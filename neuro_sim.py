@@ -47,15 +47,17 @@ def lif_neuron_sim(config, simTime, input_current):
 
     # Initialize variables
     input_current = input_current/1000000000
-    simTime = simTime / 1000
     last_spike_time = -100000
     membrane_voltage = [rest_potential]
+    delta_t = delta_t * 1000
+    refractory_period = refractory_period * 1000
 
 
     # Perform simulation using Euler's method
-    for time in np.linspace(0, simTime, int(simTime / delta_t)):
+    for time in np.arange(0, simTime, delta_t):
         # Check if the neuron is in the refractory period
-        if np.round(time - last_spike_time, 4) <= refractory_period:
+        np.round(time, 1)
+        if time - last_spike_time <= refractory_period:
             voltage = rest_potential
         else:
             voltage = lifFunction(membrane_voltage[-1], input_current)
@@ -150,17 +152,17 @@ def main():
 
     if args.mode == 'spike':
         plt.plot(np.linspace(0, args.simTime, len(synaptic_current)), synaptic_current)
-        plt.xlabel('X')
-        plt.ylabel('Y')
-        plt.title('Title')
-        plt.grid(True)
+        plt.xlabel('Time (msec)')
+        plt.ylabel('Membrane Potential (volt)')
+        plt.title('Voltage Track')
+        plt.grid(False)
         plt.show()
     else:  # args.mode == 'current'
         plt.plot(np.linspace(0, args.simTime, len(membrane_voltage)), membrane_voltage)
-        plt.xlabel('X')
-        plt.ylabel('Y')
-        plt.title('Title')
-        plt.grid(True)
+        plt.xlabel('Time (msec)')
+        plt.ylabel(r'$V_{m}$ (volt)')
+        plt.title('Membrane Potential Track')
+        plt.grid(False)
         plt.show()
 
 if __name__ == "__main__":

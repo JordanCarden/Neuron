@@ -44,22 +44,18 @@ def lif_neuron_sim(config, simTime, input_current):
     spike = config["v_spike"]
     refractory_period = config["t_r"]
     delta_t = config["dt"]
-    decay_time = config["tao_m"]
-    membrane_capacity = config["c_m"]
 
     # Initialize variables
     input_current = input_current/1000000000
     simTime = simTime / 1000
     last_spike_time = -100000
     membrane_voltage = [rest_potential]
-    i = 1
 
 
     # Perform simulation using Euler's method
     for time in np.linspace(0, simTime, int(simTime / delta_t)):
         # Check if the neuron is in the refractory period
-        diff = np.round(time - last_spike_time, 3)
-        if time - last_spike_time <= refractory_period:
+        if np.round(time - last_spike_time, 4) <= refractory_period:
             voltage = rest_potential
         else:
             voltage = lifFunction(membrane_voltage[-1], input_current)
@@ -67,8 +63,6 @@ def lif_neuron_sim(config, simTime, input_current):
             if voltage >= spike_threshold:
                 last_spike_time = time
                 voltage = spike
-                print(i)
-                i = i + 1
 
         membrane_voltage.append(voltage)
 
@@ -80,9 +74,8 @@ def generate_spikes(spike_rate, run_time):
     # Calculate the expected number of spikes
     expected_spikes = spike_rate * run_time/1000
 
-
     # Discard spikes beyond the run time
-    spike_times = np.arange(0, run_time/1000 + .01, expected_spikes/1000)
+    spike_times = np.linspace(0, run_time, int(expected_spikes+1)) / 1000
 
     return spike_times
 
@@ -118,7 +111,6 @@ def alpha_synapse_sim(config, simTime, spikeRate):
     i = 0
 
     for time in np.arange(0, simTime/1000, delta_t):
-
         timeFunc = (time - last_input_spike_time) / decay_time
         Isyn = weight * gBar * (reversal_potential - membrane_voltage[-1]) * timeFunc * math.exp(-timeFunc)
 
@@ -126,7 +118,7 @@ def alpha_synapse_sim(config, simTime, spikeRate):
             voltage = rest_potential
 
         else:
-            if np.round(time, 4) != spike_times[i]:
+            if np.round(time, 6) != spike_times[i]:
                 voltage = lifFunction(membrane_voltage[-1], Isyn)
             else:
                 i = i + 1

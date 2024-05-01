@@ -2,9 +2,19 @@ import argparse
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import math
 
-def parse_arguments():
+def Count_Decimal_Places(number):
+    num_str = str(number)
+
+    if "." in num_str:
+        integer_part, decimal_part = num_str.split(".")
+        decimal_places = len(decimal_part.rstrip("0"))
+        return decimal_places
+    else:
+        return 0
+
+
+def Parse_Arguments():
     parser = argparse.ArgumentParser(description="Simulate LIF neuron model and alpha synapse model.")
     parser.add_argument("mode", choices=["spike", "current"], help="Simulation mode: 'spike' or 'current'")
     parser.add_argument("simTime", type=float, help="Simulation time in milliseconds")
@@ -12,176 +22,147 @@ def parse_arguments():
     parser.add_argument("--current", type=float, help="Input current in nanoamps (only for 'current' mode)")
     return parser.parse_args()
 
-def load_config():
+
+def Load_Config():
     with open("config.json", "r") as config_file:
         config = json.load(config_file)
     return config
 
-def lifFunction(previousVoltage, inputCurrent):
-    config = load_config()
-    rest_potential = config["v_r"]
-    delta_t = config["dt"]
-    decay_time = config["tao_m"]
-    membrane_capacity = config["c_m"]
 
-    return previousVoltage + delta_t * (((-previousVoltage + rest_potential) / decay_time) + (inputCurrent/(membrane_capacity)))
+def LIF_Function(previousVoltage, inputCurrent):
+    config = Load_Config()
+    restPotential = config["v_r"]
+    deltaTime = config["dt"]
+    decayTime = config["tao_m"]
+    membraneCapacity = config["c_m"]
 
-def lif_neuron_sim(config, simTime, input_current):
-    """
-    Simulate a Leaky Integrate-and-Fire (LIF) neuron.
-
-    Args:
-        config (dict): Configuration parameters.
-        simTime (float): Simulation time in milliseconds.
-        input_current (float): Input current in nanoamps.
-
-    Returns:
-        list: List of membrane voltages over time.
-    """
-    # Extract configuration parameters
-    rest_potential = config["v_r"]
-    spike_threshold = config["v_thr"]
-    spike = config["v_spike"]
-    refractory_period = config["t_r"]
-    delta_t = config["dt"]
-
-    # Initialize variables
-    input_current = input_current/1000000000
-    last_spike_time = -100000
-    membrane_voltage = [rest_potential]
-    delta_t = delta_t * 1000
-    refractory_period = refractory_period * 1000
+    return previousVoltage + deltaTime * (((-previousVoltage + restPotential) / decayTime) + (inputCurrent/(membraneCapacity)))
 
 
-    # Perform simulation using Euler's method
-    for time in np.arange(0, simTime, delta_t):
-        # Check if the neuron is in the refractory period
-        np.round(time, 1)
-        if time - last_spike_time <= refractory_period:
-            voltage = rest_potential
+def LIF_Neuron_Model(config, simTime, inputCurrent):
+    restPotential = config["v_r"]
+    spikeThreshold = config["v_thr"]
+    spikeVoltage = config["v_spike"]
+    refractoryPeriod = config["t_r"]
+    deltaTime = config["dt"]
+
+    inputCurrent = inputCurrent/1000000000
+    lastSpikeTime = -1000000
+    membraneVoltage = [restPotential]
+    deltaTime = deltaTime * 1000
+    refractoryPeriod = refractoryPeriod * 1000
+
+    for time in np.arange(0, simTime, deltaTime):
+        time = np.round(time, Count_Decimal_Places(deltaTime))
+
+        if time - lastSpikeTime <= refractoryPeriod:
+            voltage = restPotential
         else:
-            voltage = lifFunction(membrane_voltage[-1], input_current)
+            voltage = LIF_Function(membraneVoltage[-1], inputCurrent)
 
-            if voltage >= spike_threshold:
-                last_spike_time = time
-                voltage = spike
+            if voltage >= spikeThreshold:
+                lastSpikeTime = time
+                voltage = spikeVoltage
 
-        membrane_voltage.append(voltage)
+        membraneVoltage.append(voltage)
 
-
-    return membrane_voltage
-
-coefficients = [1] + [1 / math.factorial(i) for i in range(1, 20)]
-
-def p_nested(x, n, coeffs):
-    # Initialize the polynomial with the coefficient at index n
-    poly = coeffs[n]
-    # Iterate over the coefficients in reverse order to calculate the nested polynomial
-    for k in reversed(range(n)):
-        poly = coeffs[k] + x * poly
-    return poly
-
-def generate_spikes(spike_rate, run_time):
-    # Calculate the expected number of spikes
-    expected_spikes = spike_rate * run_time/1000
-
-    # Discard spikes beyond the run time
-    spike_times = np.linspace(0, run_time, int(expected_spikes+1))
-
-    print(spike_times)
-    return spike_times
+    return membraneVoltage
 
 
+def Taylor_Series_Expansion(x, order=10):
 
-def alpha_synapse_sim(config, simTime, spikeRate):
-    """
-    Simulate an alpha synapse.
+    approximation = 1
+    term = 1
 
-    Args:
-        config (dict): Configuration parameters.
-        simTime (float): Simulation time in milliseconds.
-        spike_times (list): List of spike times.
+    for n in range(1, order + 1):
+        term *= x / n
+        approximation += term
 
-    Returns:
-        ndarray: Array of synaptic currents over time.
-    """
-    # Extract configuration parameters
+    return approximation
+
+
+def Generate_Spikes(spikeRate, run_time):
+    expectedSpikes = spikeRate * run_time/1000
+    spikeTimes = np.linspace(0, run_time, int(expectedSpikes+1))
+    print(spikeTimes)
+    return spikeTimes
+
+
+def Alpha_Synapse_Model(config, simTime, spikeRate):
     reversal_potential = config["v_rev"]
-    rest_potential = config["v_r"]
-    spike_threshold = config["v_thr"]
+    restPotential = config["v_r"]
+    spikeThreshold = config["v_thr"]
     weight = config["w"]
-    spike = config["v_spike"]
-    decay_time = config["tao_syn"]
-    delta_t = config["dt"]
+    spikeVoltage = config["v_spike"]
+    decayTime = config["tao_syn"]
+    deltaTime = config["dt"]
     gBar = config["g_bar"]
-    refractory_period = config["t_r"]
+    refractoryPeriod = config["t_r"]
 
-    # Initialize synaptic current array
-    membrane_voltage = [rest_potential]
-    last_input_spike_time = 0
-    last_spike_time = -10000000
-    delta_t = delta_t * 1000
-    refractory_period = refractory_period * 1000
-    decay_time = decay_time * 1000
+    membraneVoltage = [restPotential]
+    lastInputSpikeTime = 0
+    lastSpikeTime = -1000000
+    deltaTime = deltaTime * 1000
+    refractoryPeriod = refractoryPeriod * 1000
+    decayTime = decayTime * 1000
 
-    spike_times = generate_spikes(spikeRate, simTime)
+    spikeTimes = Generate_Spikes(spikeRate, simTime)
     i = 0
 
-    for time in np.arange(0, simTime, delta_t):
+    for time in np.arange(0, simTime, deltaTime):
+        time = np.round(time, Count_Decimal_Places(deltaTime))
+        timeFunc = (time - lastInputSpikeTime) / decayTime
+        #expApproximation = taylorSeriesExpansion(-timeFunc)
+        expApproximation = np.exp(-timeFunc)
+        Isyn = weight * gBar * (reversal_potential - membraneVoltage[-1]) * timeFunc * expApproximation
 
-        np.round(time, 3)
-        timeFunc = (time - last_input_spike_time) / decay_time
-        #exp_approximation = p_nested(-timeFunc, 10, coefficients)
-        exp_approximation = math.exp(-timeFunc)
-        print(exp_approximation)
-        Isyn = weight * gBar * (reversal_potential - membrane_voltage[-1]) * timeFunc * exp_approximation
-
-        if time - last_spike_time <= refractory_period:
-            voltage = rest_potential
+        if time - lastSpikeTime <= refractoryPeriod:
+            voltage = restPotential
 
         else:
-            if time != spike_times[i]:
-                voltage = lifFunction(membrane_voltage[-1], Isyn)
+            if time != spikeTimes[i]:
+                voltage = LIF_Function(membraneVoltage[-1], Isyn)
             else:
                 i = i + 1
-                last_input_spike_time = time
-                voltage = lifFunction(membrane_voltage[-1], Isyn)
+                lastInputSpikeTime = time
+                voltage = LIF_Function(membraneVoltage[-1], Isyn)
 
-            if voltage >= spike_threshold:
-                last_spike_time = time
-                voltage = spike
+            if voltage >= spikeThreshold:
+                lastSpikeTime = time
+                voltage = spikeVoltage
 
-        membrane_voltage.append(voltage)
+        membraneVoltage.append(voltage)
 
-    return membrane_voltage
+    return membraneVoltage
+
 
 def main():
-    args = parse_arguments()
-    config = load_config()
+    args = Parse_Arguments()
+    config = Load_Config()
 
     if args.mode == 'spike':
         if args.spike_rate is None:
             parser.error('--spike_rate is required for "spike" mode')
         spikeRate = args.spike_rate
-        synaptic_current = alpha_synapse_sim(config, args.simTime, spikeRate)
-    else:  # args.mode == 'current'
+        synapticCurrent = Alpha_Synapse_Model(config, args.simTime, spikeRate)
+    else:
         if args.current is None:
             parser.error('--current is required for "current" mode')
-        input_current = args.current
-        membrane_voltage = lif_neuron_sim(config, args.simTime, input_current)
+        inputCurrent = args.current
+        membraneVoltage = LIF_Neuron_Model(config, args.simTime, inputCurrent)
 
     if args.mode == 'spike':
-        plt.plot(np.linspace(0, args.simTime, len(synaptic_current)), synaptic_current)
+        plt.plot(np.linspace(0, args.simTime, len(synapticCurrent)), synapticCurrent)
         plt.xlabel('Time (msec)')
         plt.ylabel('Membrane Potential (volt)')
-        plt.title('Voltage Track')
+        plt.title('Voltage Track Group 12')
         plt.grid(False)
         plt.show()
-    else:  # args.mode == 'current'
-        plt.plot(np.linspace(0, args.simTime, len(membrane_voltage)), membrane_voltage)
+    else:
+        plt.plot(np.linspace(0, args.simTime, len(membraneVoltage)), membraneVoltage)
         plt.xlabel('Time (msec)')
         plt.ylabel(r'$V_{m}$ (volt)')
-        plt.title('Membrane Potential Track')
+        plt.title('Membrane Potential Track Group 12')
         plt.grid(False)
         plt.show()
 
